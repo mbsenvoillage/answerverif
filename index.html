@@ -117,125 +117,151 @@
       <ul id="resultsList" class="results-list"></ul>
     </div>
 
-    <script>
-      // --- CONFIGURATION DES FICHES DÉFI ---
-      // Pour chaque fiche, on donne le tableau des réponses attendues
-      // (ici sous forme de nombres, mais tu peux aussi mettre des chaînes si besoin).
-      //
-      // Exemple de fiche NUM001 avec 5 exercices :
-      //   réponses attendues : 128, 427, 90, 356, 502
-      //
-      // À TOI D’ADAPTER en fonction de tes vraies fiches.
+   <script>
+  // --- CONFIGURATION DES FICHES DÉFI ---
+  // expectedAnswers peut contenir :
+  //  - un nombre        → réponse simple
+  //  - un tableau [a,b] → réponse composée de plusieurs nombres
 
-      const SHEETS = {
-       N001: {
+  const SHEETS = {
+     N001: {
           description: "Fiche problèmes atypiques",
           expectedAnswers: [169, 12, 3],
         },
-        // Tu peux ajouter d'autres fiches :
-        // "NUM002": { description: "...", expectedAnswers: [ ... ] },
-        // "NUM003": { ... },
-      };
+    // "NUM002": { description: "...", expectedAnswers: [...] },
+  };
 
-      // --- FONCTIONS UTILITAIRES ---
+  // --- FONCTIONS UTILITAIRES ---
 
-      // Nettoie une réponse :
-      // - supprime les espaces autour
-      // - tente de la convertir en nombre
-      // Retourne:
-      //   - un nombre (int) si OK
-      //   - null si ce n'est pas un nombre valide
-      function parseAnswer(str) {
-        const cleaned = (str || "").trim().replace(/\s+/g, "");
-        if (!cleaned) return null;
-        const n = Number(cleaned.replace(",", ".")); // au cas où l'élève tape 12,5 (pas vraiment utile ici)
-        if (!Number.isFinite(n)) return null;
-        return Math.trunc(n);
-      }
+  // Nettoie une réponse simple et la transforme en entier
+  function parseSingleNumber(str) {
+    const cleaned = (str || "").trim().replace(/\s+/g, "");
+    if (!cleaned) return null;
+    const n = Number(cleaned.replace(",", "."));
+    if (!Number.isFinite(n)) return null;
+    return Math.trunc(n);
+  }
 
-      document.getElementById("checkBtn").addEventListener("click", () => {
-        const codeInput = document.getElementById("sheetCode");
-        const answersInput = document.getElementById("answers");
-        const resultsCard = document.getElementById("resultsCard");
-        const globalMsg = document.getElementById("globalMessage");
-        const resultsList = document.getElementById("resultsList");
+  // Extrait TOUS les nombres d'une chaîne (pour les réponses composées)
+  // "2 chameaux et 3 dromadaires" → [2, 3]
+  function parseAllNumbers(str) {
+    if (!str) return [];
+    const matches = str.match(/-?\d+/g); // tous les entiers (positifs ou négatifs)
+    if (!matches) return [];
+    return matches.map(s => parseInt(s, 10));
+  }
 
-        const sheetCode = (codeInput.value || "").trim().toUpperCase();
-        const sheet = SHEETS[sheetCode];
+  // Compare deux tableaux de nombres "en ordre"
+  function arraysEqual(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
 
-        resultsList.innerHTML = "";
+  document.getElementById("checkBtn").addEventListener("click", () => {
+    const codeInput = document.getElementById("sheetCode");
+    const answersInput = document.getElementById("answers");
+    const resultsCard = document.getElementById("resultsCard");
+    const globalMsg = document.getElementById("globalMessage");
+    const resultsList = document.getElementById("resultsList");
 
-        if (!sheet) {
-          resultsCard.classList.remove("hidden");
-          globalMsg.innerHTML = `<span class="result-warning">Code de fiche inconnu : "${sheetCode}".</span>`;
-          return;
-        }
+    const sheetCode = (codeInput.value || "").trim().toUpperCase();
+    const sheet = SHEETS[sheetCode];
 
-        // On découpe les réponses saisies (séparateurs : , ; ou retour à la ligne)
-        const raw = answersInput.value
-          .split(/[,;\n]/)
-          .map((s) => s.trim())
-          .filter(Boolean);
+    resultsList.innerHTML = "";
 
-        if (raw.length === 0) {
-          resultsCard.classList.remove("hidden");
-          globalMsg.innerHTML = `<span class="result-warning">Merci de saisir au moins une réponse.</span>`;
-          return;
-        }
+    if (!sheet) {
+      resultsCard.classList.remove("hidden");
+      globalMsg.innerHTML = `<span class="result-warning">Code de fiche inconnu : "${sheetCode}".</span>`;
+      return;
+    }
 
-        const expected = sheet.expectedAnswers;
-        const expectedCount = expected.length;
+    // On découpe les réponses saisies (séparateurs : , ; ou retour à la ligne)
+    const raw = answersInput.value
+      .split(/[,;\n]/)
+      .map(s => s.trim())
+      .filter(Boolean);
 
-        if (raw.length !== expectedCount) {
-          globalMsg.innerHTML = `<span class="result-warning">
+    if (raw.length === 0) {
+      resultsCard.classList.remove("hidden");
+      globalMsg.innerHTML = `<span class="result-warning">Merci de saisir au moins une réponse.</span>`;
+      return;
+    }
+
+    const expected = sheet.expectedAnswers;
+    const expectedCount = expected.length;
+
+    if (raw.length !== expectedCount) {
+      globalMsg.innerHTML = `<span class="result-warning">
         Attention : cette fiche attend ${expectedCount} réponses, tu en as saisi ${raw.length}.
       </span>`;
+    } else {
+      globalMsg.innerHTML = "";
+    }
+
+    let correctCount = 0;
+
+    raw.forEach((ansStr, index) => {
+      const li = document.createElement("li");
+      const exNum = index + 1;
+      const expectedValue = expected[index];
+
+      if (typeof expectedValue === "undefined") {
+        li.innerHTML = `Exercice ${exNum} : <span class="result-warning">non prévu pour ce code de fiche.</span>`;
+        resultsList.appendChild(li);
+        return;
+      }
+
+      // Cas 1 : réponse simple numérique (expectedValue = nombre)
+      if (typeof expectedValue === "number") {
+        const n = parseSingleNumber(ansStr);
+        if (n === null) {
+          li.innerHTML = `Exercice ${exNum} : <span class="result-bad">réponse invalide (pas un nombre).</span>`;
+        } else if (n === expectedValue) {
+          correctCount++;
+          li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ correct</span>`;
         } else {
-          globalMsg.innerHTML = "";
+          li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ à revoir</span>`;
         }
+        resultsList.appendChild(li);
+        return;
+      }
 
-        let correctCount = 0;
+      // Cas 2 : réponse composée (expectedValue = tableau, ex : [2, 3])
+      if (Array.isArray(expectedValue)) {
+        const nums = parseAllNumbers(ansStr);
+        if (!nums.length) {
+          li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ je n'ai trouvé aucun nombre dans ta réponse.</span>`;
+        } else if (arraysEqual(nums, expectedValue)) {
+          correctCount++;
+          li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ cohérent (tous les nombres attendus sont présents et dans l'ordre)</span>`;
+        } else {
+          li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ les nombres ne correspondent pas à ce qui est attendu.</span>`;
+        }
+        resultsList.appendChild(li);
+        return;
+      }
 
-        raw.forEach((ansStr, index) => {
-          const li = document.createElement("li");
-          const exNum = index + 1;
-          const expectedValue = expected[index];
+      // Cas inattendu (ni nombre ni tableau)
+      li.innerHTML = `Exercice ${exNum} : <span class="result-warning">type de solution non géré dans expectedAnswers.</span>`;
+      resultsList.appendChild(li);
+    });
 
-          if (typeof expectedValue === "undefined") {
-            li.innerHTML = `Exercice ${exNum} : <span class="result-warning">non prévu pour ce code de fiche.</span>`;
-            resultsList.appendChild(li);
-            return;
-          }
-
-          const n = parseAnswer(ansStr);
-          if (n === null) {
-            li.innerHTML = `Exercice ${exNum} : <span class="result-bad">réponse invalide (pas un nombre).</span>`;
-            resultsList.appendChild(li);
-            return;
-          }
-
-          if (n === expectedValue) {
-            correctCount++;
-            li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ correct</span>`;
-          } else {
-            li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ à revoir</span>`;
-          }
-
-          resultsList.appendChild(li);
-        });
-
-        if (correctCount === expected.length && expected.length > 0) {
-          globalMsg.innerHTML +=
-            (globalMsg.innerHTML ? "<br>" : "") +
-            `<span class="result-ok">Bravo, toutes tes réponses sont correctes pour cette fiche !</span>`;
-        } else if (!globalMsg.innerHTML) {
-          globalMsg.innerHTML = `<span class="small">
+    if (correctCount === expected.length && expected.length > 0) {
+      globalMsg.innerHTML += (globalMsg.innerHTML ? "<br>" : "") +
+        `<span class="result-ok">Bravo, toutes tes réponses sont correctes pour cette fiche !</span>`;
+    } else if (!globalMsg.innerHTML) {
+      globalMsg.innerHTML = `<span class="small">
         Certaines réponses sont à revoir. Regarde les exercices en rouge.
       </span>`;
-        }
+    }
 
-        resultsCard.classList.remove("hidden");
-      });
-    </script>
+    resultsCard.classList.remove("hidden");
+  });
+</script>
+
   </body>
 </html>
