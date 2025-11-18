@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fiches défi – Vérification</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        max-width: 700px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.6;
+      }
+      h1 {
+        font-size: 1.6rem;
+        margin-bottom: 0.5rem;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+      label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+      input[type="text"],
+      textarea {
+        width: 100%;
+        padding: 0.5rem 0.6rem;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 1rem;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+      button {
+        margin-top: 0.5rem;
+        padding: 0.5rem 1.2rem;
+        border-radius: 999px;
+        border: none;
+        font-size: 1rem;
+        cursor: pointer;
+        background: #2563eb;
+        color: white;
+      }
+      button:hover {
+        filter: brightness(1.05);
+      }
+      .result-ok {
+        color: #15803d;
+        font-weight: 600;
+      }
+      .result-bad {
+        color: #b91c1c;
+        font-weight: 600;
+      }
+      .result-warning {
+        color: #92400e;
+        font-weight: 600;
+      }
+      .results-list {
+        list-style: none;
+        padding-left: 0;
+      }
+      .results-list li {
+        margin-bottom: 0.25rem;
+      }
+      .small {
+        font-size: 0.9rem;
+        color: #555;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Vérification d’une fiche défi</h1>
+    <p class="small">
+      Entre le <strong>code de la fiche</strong> (inscrit sur ta fiche papier)
+      et tes réponses, séparées par des virgules, des points-virgules ou des
+      retours à la ligne.
+    </p>
+
+    <div class="card">
+      <div style="margin-bottom: 0.75rem">
+        <label for="sheetCode">Code de la fiche (ex : NUM001)</label>
+        <input id="sheetCode" type="text" placeholder="NUM001" />
+      </div>
+
+      <div style="margin-bottom: 0.75rem">
+        <label for="answers">Tes réponses (dans l’ordre)</label>
+        <textarea
+          id="answers"
+          placeholder="Exemple : 128, 427, 90, 356, 502"
+        ></textarea>
+        <p class="small">
+          Sépare chaque réponse par une virgule, un point-virgule ou un retour à
+          la ligne.
+        </p>
+      </div>
+
+      <button id="checkBtn">Vérifier</button>
+    </div>
+
+    <div id="resultsCard" class="card hidden">
+      <h2>Résultats</h2>
+      <p id="globalMessage"></p>
+      <ul id="resultsList" class="results-list"></ul>
+    </div>
+
+    <script>
+      // --- CONFIGURATION DES FICHES DÉFI ---
+      // Pour chaque fiche, on donne le tableau des réponses attendues
+      // (ici sous forme de nombres, mais tu peux aussi mettre des chaînes si besoin).
+      //
+      // Exemple de fiche NUM001 avec 5 exercices :
+      //   réponses attendues : 128, 427, 90, 356, 502
+      //
+      // À TOI D’ADAPTER en fonction de tes vraies fiches.
+
+      const SHEETS = {
+        NUM001: {
+          description:
+            "Fiche numération – conversions en écriture chiffrée (exemple)",
+          expectedAnswers: [128, 427, 90, 356, 502],
+        },
+        // Tu peux ajouter d'autres fiches :
+        // "NUM002": { description: "...", expectedAnswers: [ ... ] },
+        // "NUM003": { ... },
+      };
+
+      // --- FONCTIONS UTILITAIRES ---
+
+      // Nettoie une réponse :
+      // - supprime les espaces autour
+      // - tente de la convertir en nombre
+      // Retourne:
+      //   - un nombre (int) si OK
+      //   - null si ce n'est pas un nombre valide
+      function parseAnswer(str) {
+        const cleaned = (str || "").trim().replace(/\s+/g, "");
+        if (!cleaned) return null;
+        const n = Number(cleaned.replace(",", ".")); // au cas où l'élève tape 12,5 (pas vraiment utile ici)
+        if (!Number.isFinite(n)) return null;
+        return Math.trunc(n);
+      }
+
+      document.getElementById("checkBtn").addEventListener("click", () => {
+        const codeInput = document.getElementById("sheetCode");
+        const answersInput = document.getElementById("answers");
+        const resultsCard = document.getElementById("resultsCard");
+        const globalMsg = document.getElementById("globalMessage");
+        const resultsList = document.getElementById("resultsList");
+
+        const sheetCode = (codeInput.value || "").trim().toUpperCase();
+        const sheet = SHEETS[sheetCode];
+
+        resultsList.innerHTML = "";
+
+        if (!sheet) {
+          resultsCard.classList.remove("hidden");
+          globalMsg.innerHTML = `<span class="result-warning">Code de fiche inconnu : "${sheetCode}".</span>`;
+          return;
+        }
+
+        // On découpe les réponses saisies (séparateurs : , ; ou retour à la ligne)
+        const raw = answersInput.value
+          .split(/[,;\n]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        if (raw.length === 0) {
+          resultsCard.classList.remove("hidden");
+          globalMsg.innerHTML = `<span class="result-warning">Merci de saisir au moins une réponse.</span>`;
+          return;
+        }
+
+        const expected = sheet.expectedAnswers;
+        const expectedCount = expected.length;
+
+        if (raw.length !== expectedCount) {
+          globalMsg.innerHTML = `<span class="result-warning">
+        Attention : cette fiche attend ${expectedCount} réponses, tu en as saisi ${raw.length}.
+      </span>`;
+        } else {
+          globalMsg.innerHTML = "";
+        }
+
+        let correctCount = 0;
+
+        raw.forEach((ansStr, index) => {
+          const li = document.createElement("li");
+          const exNum = index + 1;
+          const expectedValue = expected[index];
+
+          if (typeof expectedValue === "undefined") {
+            li.innerHTML = `Exercice ${exNum} : <span class="result-warning">non prévu pour ce code de fiche.</span>`;
+            resultsList.appendChild(li);
+            return;
+          }
+
+          const n = parseAnswer(ansStr);
+          if (n === null) {
+            li.innerHTML = `Exercice ${exNum} : <span class="result-bad">réponse invalide (pas un nombre).</span>`;
+            resultsList.appendChild(li);
+            return;
+          }
+
+          if (n === expectedValue) {
+            correctCount++;
+            li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ correct</span>`;
+          } else {
+            li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ à revoir</span>`;
+          }
+
+          resultsList.appendChild(li);
+        });
+
+        if (correctCount === expected.length && expected.length > 0) {
+          globalMsg.innerHTML +=
+            (globalMsg.innerHTML ? "<br>" : "") +
+            `<span class="result-ok">Bravo, toutes tes réponses sont correctes pour cette fiche !</span>`;
+        } else if (!globalMsg.innerHTML) {
+          globalMsg.innerHTML = `<span class="small">
+        Certaines réponses sont à revoir. Regarde les exercices en rouge.
+      </span>`;
+        }
+
+        resultsCard.classList.remove("hidden");
+      });
+    </script>
+  </body>
+</html>
