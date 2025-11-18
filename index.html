@@ -92,8 +92,8 @@
 
     <div class="card">
       <div style="margin-bottom: 0.75rem">
-        <label for="sheetCode">Code de la fiche (ex : NUM001)</label>
-        <input id="sheetCode" type="text" placeholder="NUM001" />
+        <label for="sheetCode">Code de la fiche (ex : N001)</label>
+        <input id="sheetCode" type="text" placeholder="N001" />
       </div>
 
       <div style="margin-bottom: 0.75rem">
@@ -122,16 +122,15 @@
       // Pour chaque fiche, on donne le tableau des réponses attendues
       // (ici sous forme de nombres, mais tu peux aussi mettre des chaînes si besoin).
       //
-      // Exemple de fiche NUM001 avec 5 exercices :
+      // Exemple de fiche N001 avec 5 exercices :
       //   réponses attendues : 128, 427, 90, 356, 502
       //
       // À TOI D’ADAPTER en fonction de tes vraies fiches.
 
       const SHEETS = {
-        NUM001: {
-          description:
-            "Fiche numération – conversions en écriture chiffrée (exemple)",
-          expectedAnswers: [128, 427, 90, 356, 502],
+        N001: {
+          description: "Fiche problèmes atypiques",
+          expectedAnswers: [169, 12, 3],
         },
         // Tu peux ajouter d'autres fiches :
         // "NUM002": { description: "...", expectedAnswers: [ ... ] },
