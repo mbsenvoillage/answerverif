@@ -119,38 +119,62 @@
 
     <script>
       // --- CONFIGURATION DES FICHES DÉFI ---
-      // Pour chaque fiche, on donne le tableau des réponses attendues
-      // (ici sous forme de nombres, mais tu peux aussi mettre des chaînes si besoin).
-      //
-      // Exemple de fiche N001 avec 5 exercices :
-      //   réponses attendues : 128, 427, 90, 356, 502
-      //
-      // À TOI D’ADAPTER en fonction de tes vraies fiches.
+      // expectedAnswers peut contenir :
+      //  - un nombre        → réponse simple
+      //  - un tableau [a,b] → réponse composée de plusieurs nombres
 
       const SHEETS = {
         N001: {
           description: "Fiche problèmes atypiques",
           expectedAnswers: [169, 12, 3],
         },
-        // Tu peux ajouter d'autres fiches :
-        // "NUM002": { description: "...", expectedAnswers: [ ... ] },
-        // "NUM003": { ... },
+        N002: {
+          description: "Fiche problèmes atypiques",
+          expectedAnswers: [
+            [14, 1, 18, 2],
+            [550, 450],
+            [45, 35],
+          ],
+        },
+        N003: {
+          description: "Fiche problèmes élémentaires",
+          expectedAnswers: [8094, 26678, 257013, 139, 42, 3134],
+        },
+        N004: {
+          description: "Fiche problèmes élémentaires",
+          expectedAnswers: [-13, 2, 409, 130, 12, 48],
+        },
+        // "NUM002": { description: "...", expectedAnswers: [...] },
       };
 
       // --- FONCTIONS UTILITAIRES ---
 
-      // Nettoie une réponse :
-      // - supprime les espaces autour
-      // - tente de la convertir en nombre
-      // Retourne:
-      //   - un nombre (int) si OK
-      //   - null si ce n'est pas un nombre valide
-      function parseAnswer(str) {
+      // Nettoie une réponse simple et la transforme en entier
+      function parseSingleNumber(str) {
         const cleaned = (str || "").trim().replace(/\s+/g, "");
         if (!cleaned) return null;
-        const n = Number(cleaned.replace(",", ".")); // au cas où l'élève tape 12,5 (pas vraiment utile ici)
+        const n = Number(cleaned.replace(",", "."));
         if (!Number.isFinite(n)) return null;
         return Math.trunc(n);
+      }
+
+      // Extrait TOUS les nombres d'une chaîne (pour les réponses composées)
+      // "2 chameaux et 3 dromadaires" → [2, 3]
+      function parseAllNumbers(str) {
+        if (!str) return [];
+        const matches = str.match(/-?\d+/g); // tous les entiers (positifs ou négatifs)
+        if (!matches) return [];
+        return matches.map((s) => parseInt(s, 10));
+      }
+
+      // Compare deux tableaux de nombres "en ordre"
+      function arraysEqual(a, b) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) return false;
+        }
+        return true;
       }
 
       document.getElementById("checkBtn").addEventListener("click", () => {
@@ -207,20 +231,38 @@
             return;
           }
 
-          const n = parseAnswer(ansStr);
-          if (n === null) {
-            li.innerHTML = `Exercice ${exNum} : <span class="result-bad">réponse invalide (pas un nombre).</span>`;
+          // Cas 1 : réponse simple numérique (expectedValue = nombre)
+          if (typeof expectedValue === "number") {
+            const n = parseSingleNumber(ansStr);
+            if (n === null) {
+              li.innerHTML = `Exercice ${exNum} : <span class="result-bad">réponse invalide (pas un nombre).</span>`;
+            } else if (n === expectedValue) {
+              correctCount++;
+              li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ correct</span>`;
+            } else {
+              li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ à revoir</span>`;
+            }
             resultsList.appendChild(li);
             return;
           }
 
-          if (n === expectedValue) {
-            correctCount++;
-            li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ correct</span>`;
-          } else {
-            li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ à revoir</span>`;
+          // Cas 2 : réponse composée (expectedValue = tableau, ex : [2, 3])
+          if (Array.isArray(expectedValue)) {
+            const nums = parseAllNumbers(ansStr);
+            if (!nums.length) {
+              li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ je n'ai trouvé aucun nombre dans ta réponse.</span>`;
+            } else if (arraysEqual(nums, expectedValue)) {
+              correctCount++;
+              li.innerHTML = `Exercice ${exNum} : <span class="result-ok">✅ cohérent (tous les nombres attendus sont présents et dans l'ordre)</span>`;
+            } else {
+              li.innerHTML = `Exercice ${exNum} : <span class="result-bad">❌ les nombres ne correspondent pas à ce qui est attendu.</span>`;
+            }
+            resultsList.appendChild(li);
+            return;
           }
 
+          // Cas inattendu (ni nombre ni tableau)
+          li.innerHTML = `Exercice ${exNum} : <span class="result-warning">type de solution non géré dans expectedAnswers.</span>`;
           resultsList.appendChild(li);
         });
 
